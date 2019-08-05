@@ -1,0 +1,100 @@
+package tpl
+
+const (
+	HTML_TPL=`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>k8s-service protal</title>
+    <style type="text/css">
+        h3 {
+            margin-bottom: 1em;
+            margin-top: 0px;
+        }
+        a {
+            text-decoration:none;
+        }
+        a:link{color: mediumvioletred;}
+
+        a:visited{color:mediumvioletred;}
+
+        a:hover{color: #1f81ff;}
+
+        a:active{color:#ccc;}
+        ul {
+            margin: 0px;
+            padding: 0px;
+        }
+        ul li {
+            margin: 0px;
+            list-style-type:decimal;
+            margin-left: 3px;
+            padding-top: 0px;
+            padding-right: 0px;
+            padding-left: 3px;
+            padding-bottom: 3px;
+
+        }
+        .masonry {
+            -moz-column-count:3; /* Firefox */
+            -webkit-column-count:3; /* Safari 和 Chrome */
+            column-count:3;
+            -moz-column-gap: 1em;
+            -webkit-column-gap: 1em;
+            column-gap: 1em;
+            width: 90%;
+            margin:1em auto;
+        }
+        .item {
+            padding: 1em;
+            margin-bottom: 1em;
+            -moz-page-break-inside: avoid;
+            -webkit-column-break-inside: avoid;
+            break-inside: avoid;
+            background: #e0e0e0;
+        }
+        @media screen and (max-width: 1000px) {
+            .masonry {
+                column-count: 2; // two columns on larger phones
+            }
+        }
+        @media screen and (max-width: 800px) {
+            .masonry {
+                column-count: 1; // two columns on larger phones
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="header" role="banner"><h1 class="heading">
+    <span>k8s-service protal</span></h1>
+</div>
+<div class="masonry">
+
+{{ range . }}
+    <div class="item">
+        <div class="item_content content-lar">
+            <h3>{{.Name}} {{.ClusterIp}}</h3>
+            <ul class="simple">
+            {{ range .Ports }}
+            {{ if eq .Name "http" "https" }}
+                <li> <a class="reference external" target="_blank" href="{{.Url}}">{{.Url}}  -> {{.Target}}</a></li>
+            {{ end }}
+            {{ end }}
+
+            {{ range .Ports }}
+               {{ if eq .Name "http" "https" }}
+               {{ else }}
+                <li> {{.Url}}  -> {{.Target}}</li>
+               {{ end }}
+            {{ end }}
+            </ul>
+        </div>
+    </div>
+{{ end }}
+</div>
+</body>
+</html>
+`
+)
