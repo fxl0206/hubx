@@ -1,4 +1,4 @@
-FROM docker.io/jgowdy/centos7-zero 
+FROM alpine:latest
 
 ADD hubx /usr/local/bin/hubx
 ENTRYPOINT ["/usr/local/bin/hubx"]
