@@ -7,7 +7,7 @@ setting:
   namespace: middleware
   sa: portal-sa
 image:
-  repository: iseex.picp.io:30500/hubx/hubxs
+  repository: iseex.picp.io:30500/hubx/portal
   tag: latest
   pullPolicy: Always
 

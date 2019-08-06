@@ -1,4 +1,4 @@
-package cmd
+package server
 
 import (
 	"k8s.io/client-go/tools/cache"
@@ -17,7 +17,6 @@ import (
 	"aif.io/hubx/pkg/root"
 	"aif.io/hubx/k8s/portal/pkg/tpl"
 	"aif.io/hubx/k8s/portal/pkg/modelx"
-
 	"aif.io/hubx/pkg/tools"
 )
 var(
@@ -118,4 +117,3 @@ func createCacheHandler(informer cache.SharedIndexInformer, otype string)  {
 			},
 		})
 }
-
