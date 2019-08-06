@@ -35,6 +35,6 @@ var(
 
 
 func init(){
-	ipCmd.PersistentFlags().StringVar(&serverPort, "port", "","ip server's port")
+	ipCmd.PersistentFlags().StringVar(&serverPort, "port", "8000","ip server's port")
 	root.AddCmd(ipCmd)
 }
