@@ -1,2 +1,6 @@
-export GOPATH=/root/apps/hubx/hubxs
-go build -ldflags "-w -s" -o hubx $GOPATH/src/aif.io/hubx/k8s/portal/cmd/main.go
+#!/bin/sh
+
+. "$HOME/apps/hubx/src/aif.io/hubx/bin/Env.sh"
+
+go build -ldflags "-w -s" -o $WORKROOT/build/$EXE_NAME $WORKROOT/cmd/main.go
+echo "success build exe to ->  $WORKROOT/build/$EXE_NAME"
