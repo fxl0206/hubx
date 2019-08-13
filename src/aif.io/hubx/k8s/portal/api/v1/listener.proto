@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package aif.io.hubx.k8s.portal.api.v1;
+
+option go_package = "aif.io/hubx/k8s/portal/api/v1";
+
+message Listener {
+
+   string name = 1;
+
+   uint32 port = 2;
+
+   string protocol = 3;
+
+   repeated Service services = 4;
+
+}
+
+message Service{
+
+   string name = 1;
+
+   string uri = 2;
+
+   repeated Endpoint endpoints = 3;
+}
+
+message Endpoint {
+    string ip = 1;
+    uint32 port= 2;
+}

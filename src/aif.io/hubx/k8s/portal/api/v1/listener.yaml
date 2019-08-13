@@ -1,0 +1,15 @@
+apiVersion: "networking.istio.io/v1alpha3"
+kind: "Listener"
+metadata:
+  name: "listener.demo1"
+  namespace: "default"
+spec:
+  name: proxy1
+  port: 9200
+  protocol: http
+  services:
+  - name: es
+    uri: /
+    endpoints:
+    - ip: 127.0.0.1
+      port: 3008

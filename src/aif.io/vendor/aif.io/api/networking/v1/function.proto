@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package aif.io.api.networking.v1;
+
+option go_package = "aif.io/api/networking/v1";
+
+message Function {
+
+   //function uri eg:/csf/ord_service1 or  /springboot/test/controler1
+   string uri = 1 ;
+
+   //function's own micro-service
+   string code = 2;
+
+   //route to cluster's subset
+   string subset = 3;
+
+   //function's timeout
+   int32 timeout = 4;
+
+   //traffic limit config
+   TrafficLimit limit =5;
+
+}
+
+message TrafficLimit{
+   //limit type
+   string type = 1;
+
+   //limit triger value
+   int32 threshhold=2;
+
+   //limit triger timeWindow
+   int32 timeWindow=3;
+}

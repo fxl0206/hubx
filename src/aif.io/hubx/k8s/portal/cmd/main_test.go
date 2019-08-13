@@ -7,6 +7,14 @@ import (
 	"path/filepath"
 	"os"
 	"runtime"
+	"aif.io/hubx/k8s/portal/pkg/kube/crd"
+	"time"
+	"aif.io/hubx/k8s/portal/api/v1"
+	"aif.io/hubx/k8s/portal/pkg/kube/model"
+)
+
+var(
+	stop =make(chan struct{})
 )
 
 
@@ -65,3 +73,30 @@ func getExecutePath4() string {
 	fmt.Println(dir)
 	return dir
 }
+
+func  Notify(obj interface{}, event model.Event) error {
+
+	return nil
+}
+func TestCache(t *testing.T)  {
+	cache,err:=crd.MakeKubeConfigController("test_config","",Notify)
+	if err != nil {
+		fmt.Println(err)
+	}
+	cache.Run(stop)
+	for{
+		time.Sleep(1*time.Second)
+		configs,err2:=cache.List("listener","default")
+		if err2 != nil {
+			fmt.Println(err2)
+		}
+		for i,_:=range configs {
+			functionConfig:=configs[i].Spec.(*v1.Listener)
+			fmt.Println(functionConfig)
+		}
+	}
+
+	<- stop
+
+}
+

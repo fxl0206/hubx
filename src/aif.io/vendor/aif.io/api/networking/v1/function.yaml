@@ -1,0 +1,10 @@
+apiVersion: "networking.istio.io/v1alpha3"
+kind: "Function"
+metadata:
+  name: "csf.demo"
+  namespace: "default"
+spec:
+  uri: /csf/test
+  code: ord
+  subset: v3
+  timeout: 10000
