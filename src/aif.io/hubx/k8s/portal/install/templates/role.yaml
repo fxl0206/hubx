@@ -6,8 +6,14 @@ metadata:
     app: portal-rbac
 rules:
   - apiGroups: [""]
-    resources: ["services","listeners"]
+    resources: ["services"]
     verbs: ["get", "list","watch"]
+  - apiGroups: [""]
+    resources: ["listeners"]
+    verbs: ["get", "list","watch"]
+  - apiGroups: [""]
+    resources: ["crds"]
+    verbs: ["get", "list","watch","create","delete"]
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["get", "list","watch"]
