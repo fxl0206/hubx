@@ -17,7 +17,9 @@ fullnameOverride: ""
 service:
   type: NodePort
   port: 8000
+  grpcPort: 8001
   nodePort: 30000
+  grpcNodePort: 30001
 
 ingress:
   enabled: false

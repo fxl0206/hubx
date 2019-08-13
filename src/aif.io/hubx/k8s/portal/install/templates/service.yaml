@@ -16,6 +16,11 @@ spec:
       protocol: TCP
       name: http
       nodePort: {{ .Values.service.nodePort }}
+    - port: {{ .Values.service.grpcPort }}
+      targetPort: tcp
+      protocol: TCP
+      name: tcp
+      nodePort: {{ .Values.service.grpcNodePort }}
   selector:
     app.kubernetes.io/name: {{ include "portal.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
