@@ -34,6 +34,7 @@ var(
 	kubeConfig string
 	grpcPort uint64
 	httpPort uint64
+	ingressDns string
 	stop chan struct{}
 	portalCmd = &cobra.Command{
 		Use:   "portal",
@@ -98,14 +99,17 @@ var(
 						if pName == ""{
 							pName="https"
 						}
+
+						uri:=svc.ObjectMeta.Annotations["web.index.uri"]
+
 						if svc.Spec.Type == "NodePort"{
-							ports=append(ports,modelx.Port{Name:pName,Target:p.TargetPort.String(),Protocol:string(p.Protocol),Url:fmt.Sprintf("%s://%s:%d",pName,"iseex.picp.io",p.NodePort)})
+							ports=append(ports,modelx.Port{Name:pName,Target:p.TargetPort.String(),Protocol:string(p.Protocol),Url:fmt.Sprintf("%s://%s:%d%s",pName,ingressDns,p.NodePort,uri)})
 						}else if svc.Spec.Type == "LoadBalancer"{
-							ports=append(ports,modelx.Port{Name:pName,Target:p.TargetPort.String(),Protocol:string(p.Protocol),Url:fmt.Sprintf("%s://%s:%d",pName,"iseex.picp.io",p.Port)})
+							ports=append(ports,modelx.Port{Name:pName,Target:p.TargetPort.String(),Protocol:string(p.Protocol),Url:fmt.Sprintf("%s://%s:%d%s",pName,ingressDns,p.Port,uri)})
 						}
 					}
 					if len(ports)>0 {
-						serverInfos=append(serverInfos,modelx.ServiceInfo{ClusterIp:svc.Spec.ClusterIP,Name:svc.Name,ServerIp:"iseex.picp.io",Ports:ports})
+						serverInfos=append(serverInfos,modelx.ServiceInfo{ClusterIp:svc.Spec.ClusterIP,Name:svc.Name,ServerIp:ingressDns,Ports:ports})
 					}
 				}
 				listeners,err:=cache.List("listener","")
@@ -119,13 +123,13 @@ var(
 								Name:pName,
 								Target:strconv.FormatUint(uint64(l.Port),10),
 								Protocol:l.Protocol,
-								Url:fmt.Sprintf("%s://%s:%d",pName,"iseex.picp.io",
-									l.Port)})
+								Url:fmt.Sprintf("%s://%s:%d%s",pName,ingressDns,
+									l.Port,s.Uri)})
 
 							serverInfos=append(serverInfos,modelx.ServiceInfo{
 								ClusterIp:"",
 								Name:s.Name,
-								ServerIp:"iseex.picp.io",
+								ServerIp:ingressDns,
 								Ports:ports})
 						}
 					}
@@ -157,6 +161,8 @@ func init(){
 	portalCmd.PersistentFlags().StringVar(&kubeConfig, "kubeConfig", "","k8s config file path")
 	portalCmd.PersistentFlags().Uint64Var(&grpcPort, "grpcPort", 8001,"envoy xds server port")
 	portalCmd.PersistentFlags().Uint64Var(&httpPort, "httpPort", 8000,"portal http server port")
+	portalCmd.PersistentFlags().StringVar(&ingressDns, "ingressDns", "iseex.picp.io","ingress entry dns")
+
 	root.RootCmd.AddCommand(portalCmd)
 }
 func Start(kubeconfig string,apiServerAddress string) cache.Store{
