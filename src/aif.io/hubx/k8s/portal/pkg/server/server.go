@@ -106,6 +106,13 @@ var(
 							ports=append(ports,modelx.Port{Name:pName,Target:p.TargetPort.String(),Protocol:string(p.Protocol),Url:fmt.Sprintf("%s://%s:%d%s",pName,ingressDns,p.NodePort,uri)})
 						}else if svc.Spec.Type == "LoadBalancer"{
 							ports=append(ports,modelx.Port{Name:pName,Target:p.TargetPort.String(),Protocol:string(p.Protocol),Url:fmt.Sprintf("%s://%s:%d%s",pName,ingressDns,p.Port,uri)})
+						}else if svc.Spec.ExternalIPs != nil && len(svc.Spec.ExternalIPs)>0{
+							var it int
+							for it,_= range svc.Spec.ExternalIPs {
+								ports=append(ports,modelx.Port{Name:pName,Target:p.TargetPort.String(),Protocol:string(p.Protocol),Url:fmt.Sprintf("%s://%s:%d%s",pName,ingressDns,p.Port,uri)})
+							}
+							log.Println(it)
+
 						}
 					}
 					if len(ports)>0 {
