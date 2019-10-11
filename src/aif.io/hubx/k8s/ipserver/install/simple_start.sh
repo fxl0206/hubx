@@ -1,1 +1,1 @@
-docker run -d -it -p 8002:8000 iseex.picp.io:30500/hubx/ipserver:latest
+docker run -d --restart=always -it --net host iseex.picp.io:30500/hubx/ipserver:latest ipserver --ip 127.0.0.1
