@@ -4,10 +4,10 @@
 
 replicaCount: 1
 setting:
-  namespace: middleware
+  namespace: kube-system
   sa: portal-sa
 image:
-  repository: registry.yw.zj.chinamobile.com/hubx/portal
+  repository: doc.hubx.site/hubx/portal
   tag: latest
   pullPolicy: Always
 
