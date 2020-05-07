@@ -168,7 +168,7 @@ func init(){
 	portalCmd.PersistentFlags().StringVar(&kubeConfig, "kubeConfig", "","k8s config file path")
 	portalCmd.PersistentFlags().Uint64Var(&grpcPort, "grpcPort", 8001,"envoy xds server port")
 	portalCmd.PersistentFlags().Uint64Var(&httpPort, "httpPort", 8000,"portal http server port")
-	portalCmd.PersistentFlags().StringVar(&ingressDns, "ingressDns", "iseex.picp.io","ingress entry dns")
+	portalCmd.PersistentFlags().StringVar(&ingressDns, "ingressDns", "doc.hubx.site","ingress entry dns")
 
 	root.RootCmd.AddCommand(portalCmd)
 }
