@@ -2,23 +2,26 @@ package envoy
 
 import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	pauth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
-	"time"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/gogo/protobuf/types"
 	als "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	alf "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
+	lua "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/lua/v2"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/cache"
-	xdsv1 "aif.io/hubx/k8s/portal/api/v1"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/types"
+	"time"
 
-	"strings"
+	xdsv1 "aif.io/hubx/k8s/portal/api/v1"
+	"github.com/envoyproxy/go-control-plane/pkg/cache"
+
 	"aif.io/hubx/k8s/portal/pkg/kube/model"
 	"fmt"
+	"strings"
 )
 const (
 
@@ -112,7 +115,10 @@ func MakeCluster(mode string, clusterName string) *v2.Cluster {
 }
 
 // MakeRoute creates an HTTP route that routes to a given cluster.
-func MakeRoute(routeName, clusterName string) *v2.RouteConfiguration {
+func MakeRoute(auth,routeName, clusterName string) *v2.RouteConfiguration {
+	if auth == "" {
+		auth="YWRtaW46YWRtaW4="
+	}
 	return &v2.RouteConfiguration{
 		Name: routeName,
 		VirtualHosts: []route.VirtualHost{{
@@ -122,6 +128,27 @@ func MakeRoute(routeName, clusterName string) *v2.RouteConfiguration {
 				Match: route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_Prefix{
 						Prefix: "/",
+					},
+				},
+				Metadata:&core.Metadata{
+					FilterMetadata:map[string]*types.Struct{
+						"envoy.lua":&types.Struct{
+							Fields: map[string]*types.Value{
+								"credentials":&types.Value{
+									Kind:&types.Value_ListValue{
+										ListValue:&types.ListValue{
+											Values:[]*types.Value{
+												&types.Value{
+													Kind:&types.Value_StringValue{
+														StringValue:auth,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 				Action: &route.Route_Route{
@@ -168,7 +195,7 @@ func configSource(mode string) *core.ConfigSource {
 }
 
 // MakeHTTPListener creates a listener using either ADS or RDS for the route.
-func MakeHTTPListener(mode string, listenerName string, port uint32, route string) *v2.Listener {
+func MakeHTTPListener(ssl bool,auth,mode string, listenerName string, port uint32, route string) *v2.Listener {
 	rdsSource := configSource(mode)
 
 	// access log service configuration
@@ -188,7 +215,44 @@ func MakeHTTPListener(mode string, listenerName string, port uint32, route strin
 	if err != nil {
 		panic(err)
 	}
+    httpFilters:=[]*hcm.HttpFilter{{
+		Name: util.Router,
+	}}
 
+    if auth != "" {
+    	zlua:=&lua.Lua{
+    		InlineCode:`
+                 function envoy_on_request(request_handle)
+                    -- Surely you have to check if request_handle:metadata():get("credentials") has
+                    -- nothing then you need to decide what to do.
+                    for _, credential in pairs(request_handle:metadata():get("credentials")) do
+                      if request_handle:headers():get("authorization") == credential
+                      then
+                        return
+                      end
+                    end
+                    request_handle:respond(
+                      {[":status"] = "401", ["WWW-Authenticate"] = "Basic realm=\"Unknown\""}, "Unauthorized"
+                    )
+                 end
+             `,
+		}
+		llua, err := types.MarshalAny(zlua)
+		if err != nil {
+			panic(err)
+		}
+		httpFilters=[]*hcm.HttpFilter{
+			{
+			  Name:"envoy.lua",
+			  ConfigType:&hcm.HttpFilter_TypedConfig{
+			  	TypedConfig:llua,
+			  },
+		    },
+			{
+			  Name: util.Router,
+		    },
+		}
+	}
 	// HTTP filter configuration
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.AUTO,
@@ -199,9 +263,7 @@ func MakeHTTPListener(mode string, listenerName string, port uint32, route strin
 				RouteConfigName: route,
 			},
 		},
-		HttpFilters: []*hcm.HttpFilter{{
-			Name: util.Router,
-		}},
+		HttpFilters: httpFilters,
 		AccessLog: []*alf.AccessLog{{
 			Name: util.HTTPGRPCAccessLog,
 			ConfigType: &alf.AccessLog_TypedConfig{
@@ -209,11 +271,39 @@ func MakeHTTPListener(mode string, listenerName string, port uint32, route strin
 			},
 		}},
 	}
+
 	pbst, err := types.MarshalAny(manager)
 	if err != nil {
 		panic(err)
 	}
-
+    chain:=listener.FilterChain{
+		Filters: []listener.Filter{{
+			Name: util.HTTPConnectionManager,
+			ConfigType: &listener.Filter_TypedConfig{
+				TypedConfig: pbst,
+			},
+		}},
+	}
+    if ssl {
+		chain.TlsContext=&pauth.DownstreamTlsContext{
+			CommonTlsContext:&pauth.CommonTlsContext{
+				TlsCertificates:[]*pauth.TlsCertificate{
+					&pauth.TlsCertificate{
+						CertificateChain:&core.DataSource{
+							Specifier:&core.DataSource_Filename{
+								"/etc/letsencrypt/fullchain1.pem",
+							},
+						},
+						PrivateKey:&core.DataSource{
+							Specifier:&core.DataSource_Filename{
+								"/etc/letsencrypt/privkey1.pem",
+							},
+						},
+					},
+				},
+			},
+		}
+	}
 	return &v2.Listener{
 		Name: listenerName,
 		Address: core.Address{
@@ -227,14 +317,7 @@ func MakeHTTPListener(mode string, listenerName string, port uint32, route strin
 				},
 			},
 		},
-		FilterChains: []listener.FilterChain{{
-			Filters: []listener.Filter{{
-				Name: util.HTTPConnectionManager,
-				ConfigType: &listener.Filter_TypedConfig{
-					TypedConfig: pbst,
-				},
-			}},
-		}},
+		FilterChains: []listener.FilterChain{chain},
 	}
 }
 
@@ -302,13 +385,13 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 					if len(s.Endpoints)>0 {
 						e:=s.Endpoints[0]
 						endpoints=append(endpoints,MakeEndpoint(s.Name,e.Ip,e.Port))
-						routes=append(routes,MakeRoute(l.Name, s.Name))
+						routes=append(routes,MakeRoute(l.Auth,l.Name, s.Name))
 						clusters=append(clusters,MakeCluster(Ads,s.Name))
 						count++
 					}
 				}
 				if count>0 {
-					listeners = append(listeners, MakeHTTPListener(Ads, l.Name, l.Port, l.Name))
+					listeners = append(listeners, MakeHTTPListener(l.Ssl,l.Auth,Ads, l.Name, l.Port, l.Name))
 				}
 			}
 		}else {

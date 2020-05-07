@@ -1,0 +1,19 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: listeners.networking.istio.io
+spec:
+  conversion:
+    strategy: None
+  group: networking.istio.io
+  names:
+    kind: Listener
+    listKind: ListenerList
+    plural: listeners
+    singular: listener
+  preserveUnknownFields: true
+  scope: Namespaced
+  versions:
+    - name: v1alpha3
+      served: true
+      storage: true

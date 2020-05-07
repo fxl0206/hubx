@@ -12,7 +12,11 @@ message Listener {
 
    string protocol = 3;
 
-   repeated Service services = 4;
+   string auth = 4;
+
+   bool ssl = 5;
+
+   repeated Service services = 6;
 
 }
 
