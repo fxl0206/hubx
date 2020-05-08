@@ -85,7 +85,7 @@ var(
 					}
 				}
 
-				builder:=henvoy.SnapshotBuilder{DnsMap:dnsMap,Version:"x",Listeners:listeners}
+				builder:=henvoy.SnapshotBuilder{DnsMap:dnsMap,TLS:true,Version:"x",Listeners:listeners}
 				data,err:=json.Marshal(builder.Build())
 				if err != nil {
 					fmt.Fprintln(w, err)
