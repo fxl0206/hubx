@@ -302,7 +302,7 @@ func MakeHTTPListener(ssl bool,auth,mode string, listenerName string, port uint3
     if ssl {
 		chain.TlsContext=&pauth.DownstreamTlsContext{
 			CommonTlsContext:&pauth.CommonTlsContext{
-				TlsCertificates:[]*pauth.TlsCertificate{
+				/*TlsCertificates:[]*pauth.TlsCertificate{
 					&pauth.TlsCertificate{
 						CertificateChain:&core.DataSource{
 							Specifier:&core.DataSource_Filename{
@@ -315,7 +315,7 @@ func MakeHTTPListener(ssl bool,auth,mode string, listenerName string, port uint3
 							},
 						},
 					},
-				},
+				},*/
 				TlsCertificateSdsSecretConfigs: []*pauth.SdsSecretConfig{
 					{
 					   Name:"tlssecret",
