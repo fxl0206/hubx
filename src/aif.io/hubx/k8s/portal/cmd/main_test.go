@@ -132,6 +132,12 @@ func TestBuild(t *testing.T){
 		},
 	}
 	ll.Spec.Rules=[]ext.IngressRule{rule}
+	ll.Spec.TLS=[]ext.IngressTLS{
+		{
+			Hosts:[]string{"doc.hubx.site"},
+			SecretName:"doc/test",
+		},
+	}
 	listeners:=[]*ext.Ingress{
 		ll,
 	}

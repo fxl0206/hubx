@@ -67,6 +67,7 @@ var(
 			cache.Run(stop)*/
 			xdsCallback.SvcStore =k8sStore
 			xdsCallback.IngressStore=ingessStore
+			xdsCallback.SecretStore=secretStore
 
 			http.HandleFunc("/beat",func(w http.ResponseWriter, r *http.Request){
 				fmt.Fprintln(w, "ok")
