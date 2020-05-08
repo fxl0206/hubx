@@ -391,9 +391,9 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 
 		l:=config.(*ext.Ingress)
 		rules:=l.Spec.Rules
-		protocol:=l.Annotations["listen.protocol"]
-		sport:=l.Annotations["listen.port"]
-		auth:=l.Annotations["listen.auth"]
+		protocol:=l.Labels["listen.protocol"]
+		sport:=l.Labels["listen.port"]
+		auth:=l.Labels["listen.auth"]
 
 		port,err:=strconv.Atoi(sport)
 		if err != nil {
