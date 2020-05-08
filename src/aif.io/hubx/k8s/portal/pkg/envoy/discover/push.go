@@ -1,15 +1,15 @@
 package discover
 
 import (
-	"k8s.io/api/core/v1"
-	"sync"
-	"context"
+	henvoy "aif.io/hubx/k8s/portal/pkg/envoy"
 	"aif.io/hubx/k8s/portal/pkg/kube/model"
+	"context"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	"github.com/prometheus/common/log"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	henvoy "aif.io/hubx/k8s/portal/pkg/envoy"
+	"k8s.io/api/core/v1"
 	kcache "k8s.io/client-go/tools/cache"
+	"sync"
 
 	"fmt"
 	"strconv"
@@ -20,11 +20,12 @@ type Callbacks struct {
 	Signal   chan struct{}
 	fetches  int
 	requests int
-	version int
+	version  int
 	mu       sync.Mutex
-	timer *time.Timer
-	Store  model.ConfigStoreCache
-	K8sStore kcache.Store
+	timer    *time.Timer
+	Store    model.ConfigStoreCache
+	SvcStore kcache.Store
+	IngressStore kcache.Store
 
 	Cache cache.SnapshotCache
 }
@@ -61,11 +62,9 @@ func (cb *Callbacks) Push() error{
 	}
 
 	for _,key:= range cb.Cache.GetStatusKeys(){
-		listeners,err:=cb.Store.List("listener","")
-		if err != nil {
-			return err
-		}
-		services:= cb.K8sStore.List()
+		listeners:=cb.IngressStore.List()
+
+		services:= cb.SvcStore.List()
 		dnsMap:=map[string]string{}
 		for _,v:=range services{
 			svc:=v.(*v1.Service)

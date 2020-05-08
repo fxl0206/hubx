@@ -14,12 +14,14 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
+	ext "k8s.io/api/extensions/v1beta1"
+	"strconv"
+
 	"time"
 
-	xdsv1 "aif.io/hubx/k8s/portal/api/v1"
+	//xdsv1 "aif.io/hubx/k8s/portal/api/v1"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 
-	"aif.io/hubx/k8s/portal/pkg/kube/model"
 	"fmt"
 	"strings"
 )
@@ -113,36 +115,27 @@ func MakeCluster(mode string, clusterName string) *v2.Cluster {
 		},
 	}
 }
-
-// MakeRoute creates an HTTP route that routes to a given cluster.
-func MakeRoute(auth,routeName, clusterName string) *v2.RouteConfiguration {
-	if auth == "" {
-		auth="YWRtaW46YWRtaW4="
+func newRoute(clusterName,auth,prefix string,routes [] route.Route)  [] route.Route{
+	if prefix == ""{
+		prefix="/"
 	}
-	return &v2.RouteConfiguration{
-		Name: routeName,
-		VirtualHosts: []route.VirtualHost{{
-			Name:    routeName,
-			Domains: []string{"*"},
-			Routes: []route.Route{{
-				Match: route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Prefix{
-						Prefix: "/",
-					},
-				},
-				Metadata:&core.Metadata{
-					FilterMetadata:map[string]*types.Struct{
-						"envoy.lua":&types.Struct{
-							Fields: map[string]*types.Value{
-								"credentials":&types.Value{
-									Kind:&types.Value_ListValue{
-										ListValue:&types.ListValue{
-											Values:[]*types.Value{
-												&types.Value{
-													Kind:&types.Value_StringValue{
-														StringValue:auth,
-													},
-												},
+	newRoute:=route.Route{
+		Match: route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_Prefix{
+				Prefix: prefix,
+			},
+		},
+		Metadata:&core.Metadata{
+			FilterMetadata:map[string]*types.Struct{
+				"envoy.lua":&types.Struct{
+					Fields: map[string]*types.Value{
+						"credentials":&types.Value{
+							Kind:&types.Value_ListValue{
+								ListValue:&types.ListValue{
+									Values:[]*types.Value{
+										&types.Value{
+											Kind:&types.Value_StringValue{
+												StringValue:auth,
 											},
 										},
 									},
@@ -151,15 +144,31 @@ func MakeRoute(auth,routeName, clusterName string) *v2.RouteConfiguration {
 						},
 					},
 				},
-				Action: &route.Route_Route{
-					Route: &route.RouteAction{
-						ClusterSpecifier: &route.RouteAction_Cluster{
-							Cluster: clusterName,
-						},
-					},
+			},
+		},
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{
+					Cluster: clusterName,
 				},
-			}},
-		}},
+			},
+		},
+	}
+	return append(routes,newRoute)
+}
+
+func MakeVirtualHost(vsName ,domain string,routes [] route.Route) route.VirtualHost{
+	return route.VirtualHost{
+		Name:    vsName,
+		Domains: []string{domain},
+		Routes: routes,
+	}
+}
+// MakeRoute creates an HTTP route that routes to a given cluster.
+func MakeRoute(routeName string,virtualHosts [] route.VirtualHost) *v2.RouteConfiguration {
+	return &v2.RouteConfiguration{
+		Name: routeName,
+		VirtualHosts: virtualHosts,
 	}
 }
 
@@ -362,7 +371,7 @@ func MakeTCPListener(listenerName string, port uint32, clusterName string) *v2.L
 type SnapshotBuilder struct {
 	Version string
 	TLS bool
-	Listeners []model.Config
+	Listeners []interface{}
 	DnsMap map[string]string
 }
 
@@ -371,44 +380,58 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 	clusters := make([]cache.Resource, 0)
 	endpoints := make([]cache.Resource,0)
 	routes := make([]cache.Resource,0)
-
+    existsCluster:=make(map[string]string)
 	for index,_:= range ts.Listeners {
 		config:=ts.Listeners[index]
 
-		l:=config.Spec.(*xdsv1.Listener)
-		p:=strings.ToUpper(l.Protocol)
+		l:=config.(*ext.Ingress)
+		rules:=l.Spec.Rules
+		protocol:=l.Annotations["protocol"]
+		sport:=l.Annotations["port"]
+		auth:=l.Annotations["auth"]
 
-		if p=="HTTP" {
-			if len(l.Services) >0 {
-				count:=0
-				for i,_:= range l.Services {
-					s:=l.Services[i]
-					if len(s.Endpoints)>0 {
-						e:=s.Endpoints[0]
-						rIP:=ts.DnsMap[e.Ip]
-						if rIP==""{
-							rIP=e.Ip
-						}
-						endpoints=append(endpoints,MakeEndpoint(s.Name,rIP,e.Port))
-						routes=append(routes,MakeRoute(l.Auth,l.Name, s.Name))
-						clusters=append(clusters,MakeCluster(Ads,s.Name))
-						count++
-					}
-				}
-				if count>0 {
-					listeners = append(listeners, MakeHTTPListener(l.Ssl,l.Auth,Ads, l.Name, l.Port, l.Name))
-				}
+		port,err:=strconv.Atoi(sport)
+		if err != nil {
+			continue
+		}
+		protocol=strings.ToUpper(protocol)
+		if protocol=="HTTP" {
+			virtualHosts:=make([]route.VirtualHost,0)
+			for i,_:= range rules {
+				routeItems :=make([]route.Route,0)
+				s:=rules[i]
+			    for j,_:= range s.HTTP.Paths {
+			    	pathValue:=s.HTTP.Paths[j]
+			    	clusterName:=pathValue.Backend.ServiceName
+			    	rIP:=ts.DnsMap[clusterName]
+			    	if rIP==""{
+			    		continue
+			    	}
+			    	//不存在集群才构建
+			    	if _,ok:=existsCluster[clusterName];!ok{
+			  		   endpoints=append(endpoints,MakeEndpoint(clusterName,rIP,uint32(pathValue.Backend.ServicePort.IntValue())))
+			  		   clusters=append(clusters,MakeCluster(Ads,clusterName))
+			  	    }
+			    	routeItems =newRoute(clusterName,auth,pathValue.Path, routeItems)
+			    }
+			  virtualHosts=append(virtualHosts,MakeVirtualHost(s.Host,s.Host,routeItems))
+			}
+			if len(virtualHosts)>0 {
+				routes=append(routes,MakeRoute(sport, virtualHosts))
+				useSSL:=len(l.Spec.TLS)>0
+				listeners = append(listeners, MakeHTTPListener(useSSL,auth,Ads, l.Name, uint32(port), sport))
 			}
 		}else {
-			if len(l.Services) >0 {
-				s:=l.Services[0]
-				cluster:=s.Name
-				if len(s.Endpoints)>0 {
-					e:=s.Endpoints[0]
-					endpoints=append(endpoints,MakeEndpoint(cluster,e.Ip,e.Port))
-					clusters=append(clusters,MakeCluster(Ads,cluster))
-					listeners=append(listeners,MakeTCPListener(l.Name,l.Port,cluster))
+			if l.Spec.Backend != nil {
+				s:=l.Spec.Backend
+				cluster:=s.ServiceName
+				rIP:=ts.DnsMap[s.ServiceName]
+				if rIP==""{
+					continue
 				}
+				endpoints=append(endpoints,MakeEndpoint(cluster,rIP,uint32(s.ServicePort.IntValue())))
+				clusters=append(clusters,MakeCluster(Ads,cluster))
+				listeners=append(listeners,MakeTCPListener(l.Name,uint32(port),cluster))
 			}
 		}
 	}

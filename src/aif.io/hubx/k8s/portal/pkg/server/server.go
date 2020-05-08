@@ -1,34 +1,35 @@
 package server
 
 import (
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/rest"
-	"fmt"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/informers"
-	"time"
-	"log"
+	"aif.io/hubx/k8s/portal/pkg/kube/model"
 	"encoding/json"
+	"fmt"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
+	"log"
+	"time"
 
 	"github.com/spf13/cobra"
-	"net/http"
 	"k8s.io/api/core/v1"
-	xdsv1 "aif.io/hubx/k8s/portal/api/v1"
-	"sort"
-	"html/template"
-	"aif.io/hubx/pkg/root"
-	"aif.io/hubx/k8s/portal/pkg/tpl"
+	"net/http"
 	"aif.io/hubx/k8s/portal/pkg/modelx"
+	"aif.io/hubx/k8s/portal/pkg/tpl"
+	"aif.io/hubx/pkg/root"
 	"aif.io/hubx/pkg/tools"
-	"aif.io/hubx/k8s/portal/pkg/kube/crd"
+	"html/template"
+	//xdsv1 "aif.io/hubx/k8s/portal/api/v1"
+	"sort"
+	//"aif.io/hubx/k8s/portal/pkg/kube/crd"
 	henvoy "aif.io/hubx/k8s/portal/pkg/envoy"
 
-	"bytes"
 	"aif.io/hubx/k8s/portal/pkg/envoy/discover"
+	"bytes"
 	ecache "github.com/envoyproxy/go-control-plane/pkg/cache"
 
-	"strconv"
+	//"strconv"
 )
 var(
 	kubeConfig string
@@ -44,38 +45,33 @@ var(
 			//打印参数
 			tools.PrintFlags(c.Flags())
 
-			//初始化k8s原生资源存储
-			k8sStore := Start(kubeConfig,"")
-
 			//启动xdsserver
 			xdsSnapshotCache := ecache.NewSnapshotCache(true, discover.Hasher{}, nil)
 			xdsCallback := &discover.Callbacks{Signal: make(chan struct{}),Cache: xdsSnapshotCache}
 			go discover.Start(xdsCallback,grpcPort)
 
+			//初始化k8s原生资源存储
+			k8sStore,ingessStore := Start(kubeConfig,"",xdsCallback)
+
 			//启动crd
-			cache,err:=crd.MakeKubeConfigController(kubeConfig,"", xdsCallback.Notify)
+			//cache,err:=crd.MakeKubeConfigController(kubeConfig,"", xdsCallback.Notify)
 
 			//绑定crd到xdsserver
-			xdsCallback.Store=cache
-			xdsCallback.K8sStore=k8sStore
-
-			if err != nil {
+			//xdsCallback.Store=cache
+			/*if err != nil {
 				log.Println(err)
 				return err
 			}
-			cache.Run(stop)
-
+			cache.Run(stop)*/
+			xdsCallback.SvcStore =k8sStore
+			xdsCallback.IngressStore=ingessStore
 
 			http.HandleFunc("/beat",func(w http.ResponseWriter, r *http.Request){
 				fmt.Fprintln(w, "ok")
 			})
 
 			http.HandleFunc("/debug",func(w http.ResponseWriter, r *http.Request){
-				listeners,err:=cache.List("listener","")
-				if err != nil {
-					fmt.Fprintln(w, err)
-					return
-				}
+				listeners:=ingessStore.List()
 
 				services:= k8sStore.List()
 				dnsMap:=map[string]string{}
@@ -130,7 +126,7 @@ var(
 						serverInfos=append(serverInfos,modelx.ServiceInfo{ClusterIp:svc.Spec.ClusterIP,Name:svc.Name,ServerIp:ingressDns,Ports:ports})
 					}
 				}
-				listeners,err:=cache.List("listener","")
+				/*listeners,err:=cache.List("listener","")
 				if err == nil {
 					for _,v:= range listeners{
 						l:=v.Spec.(*xdsv1.Listener)
@@ -151,10 +147,10 @@ var(
 								Ports:ports})
 						}
 					}
-				}
+				}*/
 				t :=template.New("test")
 
-				t,err =t.Parse(tpl.HTML_TPL)
+				t,err :=t.Parse(tpl.HTML_TPL)
 				if err != nil {
 					fmt.Fprintf(w,err.Error())
 				}else{
@@ -183,7 +179,7 @@ func init(){
 
 	root.RootCmd.AddCommand(portalCmd)
 }
-func Start(kubeconfig string,apiServerAddress string) cache.Store{
+func Start(kubeconfig string,apiServerAddress string,callbacks *discover.Callbacks) (cache.Store,cache.Store){
 	var config *rest.Config
 	var err error
 	if kubeconfig == "" {
@@ -201,22 +197,25 @@ func Start(kubeconfig string,apiServerAddress string) cache.Store{
 
 	svcInformer := sharedInformers.Core().V1().Services().Informer()
 	go svcInformer.Run(stop)
+	createCacheHandler(svcInformer,"Service",callbacks)
 
-	createCacheHandler(svcInformer,"Services")
-	return svcInformer.GetStore()
+	ingessInformer := sharedInformers.Extensions().V1beta1().Ingresses().Informer()
+	go ingessInformer.Run(stop)
+	createCacheHandler(ingessInformer,"Ingress",callbacks)
+	return svcInformer.GetStore(),ingessInformer.GetStore()
 }
 
-func createCacheHandler(informer cache.SharedIndexInformer, otype string)  {
+func createCacheHandler(informer cache.SharedIndexInformer, otype string,callbacks *discover.Callbacks)  {
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-
+				callbacks.Notify(obj,model.EventAdd)
 			},
 			UpdateFunc: func(old, cur interface{}) {
-
+				callbacks.Notify(cur,model.EventUpdate)
 			},
 			DeleteFunc: func(obj interface{}) {
-
+				callbacks.Notify(obj,model.EventDelete)
 			},
 		})
 }
