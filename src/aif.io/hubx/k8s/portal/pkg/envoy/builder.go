@@ -156,6 +156,7 @@ func newRoute(clusterName,auth,prefix string,routes [] route.Route)  [] route.Ro
 				ClusterSpecifier: &route.RouteAction_Cluster{
 					Cluster: clusterName,
 				},
+				PrefixRewrite:"/",
 			},
 		},
 	}
@@ -410,8 +411,8 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 				s:=rules[i]
 			    for j,_:= range s.HTTP.Paths {
 			    	pathValue:=s.HTTP.Paths[j]
-			    	clusterName:=pathValue.Backend.ServiceName
-			    	rIP:=ts.DnsMap[clusterName+"."+l.Namespace]
+			    	clusterName:=pathValue.Backend.ServiceName+"."+l.Namespace
+			    	rIP:=ts.DnsMap[clusterName]
 					fmt.Printf("###2")
 
 					if rIP==""{
@@ -445,8 +446,8 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 		}else {
 			if l.Spec.Backend != nil {
 				s:=l.Spec.Backend
-				cluster:=s.ServiceName
-				rIP:=ts.DnsMap[s.ServiceName]
+				cluster:=s.ServiceName+"."+l.Namespace
+				rIP:=ts.DnsMap[cluster]
 				if rIP==""{
 					continue
 				}
