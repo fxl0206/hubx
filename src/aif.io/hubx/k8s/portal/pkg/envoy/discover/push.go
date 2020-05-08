@@ -56,7 +56,7 @@ func (cb *Callbacks) OnFetchResponse(*v2.DiscoveryRequest, *v2.DiscoveryResponse
 }
 
 func (cb *Callbacks) Push() error{
-	if cb.Store == nil || cb.Cache == nil {
+	if cb.IngressStore == nil || cb.IngressStore == nil {
 		fmt.Println("push do nothing")
 		return nil
 	}

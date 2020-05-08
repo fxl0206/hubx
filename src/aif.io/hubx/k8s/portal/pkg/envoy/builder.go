@@ -438,7 +438,6 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 			}
 			if len(virtualHosts)>0 {
 				fmt.Printf("###7")
-
 				routes=append(routes,MakeRoute(sport, virtualHosts))
 				useSSL:=len(l.Spec.TLS)>0
 				listeners = append(listeners, MakeHTTPListener(useSSL,auth,Ads, l.Name, uint32(port), sport))

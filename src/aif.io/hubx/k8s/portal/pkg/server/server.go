@@ -1,6 +1,7 @@
 package server
 
 import (
+	"aif.io/hubx/k8s/portal/pkg/kube/model"
 	"encoding/json"
 	"fmt"
 	"k8s.io/client-go/informers"
@@ -216,7 +217,7 @@ func Start(kubeconfig string,apiServerAddress string,callbacks *discover.Callbac
 
 	ingessInformer := sharedInformers.Extensions().V1beta1().Ingresses().Informer()
 	go ingessInformer.Run(stop2)
-	//createCacheHandler(ingessInformer,"Ingress",callbacks)
+	createCacheHandler(ingessInformer,"Ingress",callbacks)
 	return svcInformer.GetStore(),ingessInformer.GetStore()
 }
 
@@ -225,17 +226,17 @@ func createCacheHandler(informer cache.SharedIndexInformer, otype string,callbac
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				fmt.Println(obj)
-				//callbacks.Notify(obj,model.EventAdd)
+				callbacks.Notify(obj,model.EventAdd)
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				fmt.Println(cur)
 
-				//callbacks.Notify(cur,model.EventUpdate)
+				callbacks.Notify(cur,model.EventUpdate)
 			},
 			DeleteFunc: func(obj interface{}) {
 				fmt.Println(obj)
 
-				//callbacks.Notify(obj,model.EventDelete)
+				callbacks.Notify(obj,model.EventDelete)
 			},
 		})
 }
