@@ -316,6 +316,12 @@ func MakeHTTPListener(ssl bool,auth,mode string, listenerName string, port uint3
 						},
 					},
 				},
+				TlsCertificateSdsSecretConfigs: []*pauth.SdsSecretConfig{
+					{
+					   Name:"tlssecret",
+					   SdsConfig:configSource(Xds),
+					},
+				},
 			},
 		}
 	}

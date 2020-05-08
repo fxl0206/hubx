@@ -73,7 +73,7 @@ func (cb *Callbacks) Push() error{
 				dnsMap[sName]=svc.Spec.ClusterIP
 			}
 		}
-		builder:=henvoy.SnapshotBuilder{DnsMap:dnsMap,Version:strconv.Itoa(cb.version),Listeners:listeners}
+		builder:=henvoy.SnapshotBuilder{DnsMap:dnsMap,TLS:true,Version:strconv.Itoa(cb.version),Listeners:listeners}
 		fmt.Println(fmt.Sprintf("push id=%s cache",key))
 		ss:=builder.Build()
 		cb.Cache.SetSnapshot(key,ss)
