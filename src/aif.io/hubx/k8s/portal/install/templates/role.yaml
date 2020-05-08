@@ -6,7 +6,7 @@ metadata:
     app: portal-rbac
 rules:
   - apiGroups: [""]
-    resources: ["services"]
+    resources: ["services","secrets"]
     verbs: ["get", "list","watch"]
   - apiGroups: ["networking.istio.io"]
     resources: ["*"]
@@ -16,5 +16,8 @@ rules:
     verbs: ["create", "get", "list", "watch", "patch"]
   - apiGroups: [""]
     resources: ["configmaps"]
+    verbs: ["get", "list","watch"]
+  - apiGroups: ["extensions","networking.k8s.io"]
+    resources: ["ingresses"]
     verbs: ["get", "list","watch"]
 

@@ -11,6 +11,6 @@ subjects:
     namespace: {{ .Values.setting.namespace }}
 roleRef:
   kind: ClusterRole
-  name: portal-read
+  name:  portal-read
   apiGroup: rbac.authorization.k8s.io
 
