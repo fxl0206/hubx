@@ -53,7 +53,7 @@ var(
 			go discover.Start(xdsCallback,grpcPort)
 
 			//初始化k8s原生资源存储
-			k8sStore,ingessStore := Start(kubeConfig,"",xdsCallback)
+			k8sStore,ingessStore,secretStore := Start(kubeConfig,"",xdsCallback)
 
 			//启动crd
 			//cache,err:=crd.MakeKubeConfigController(kubeConfig,"", xdsCallback.Notify)
@@ -99,6 +99,17 @@ var(
 			http.HandleFunc("/debug2",func(w http.ResponseWriter, r *http.Request){
 				listeners:=ingessStore.List()
 				data,err:=json.Marshal(listeners)
+				if err != nil {
+					fmt.Fprintln(w, err)
+					return
+				}
+				var out bytes.Buffer
+				err = json.Indent(&out, data, "", "  ")
+				fmt.Fprintln(w,  out.String())
+			})
+			http.HandleFunc("/debug3",func(w http.ResponseWriter, r *http.Request){
+				secrets:=secretStore.List()
+				data,err:=json.Marshal(secrets)
 				if err != nil {
 					fmt.Fprintln(w, err)
 					return
@@ -195,7 +206,7 @@ func init(){
 
 	root.RootCmd.AddCommand(portalCmd)
 }
-func Start(kubeconfig string,apiServerAddress string,callbacks *discover.Callbacks) (cache.Store,cache.Store){
+func Start(kubeconfig string,apiServerAddress string,callbacks *discover.Callbacks) (cache.Store,cache.Store,cache.Store){
 	var config *rest.Config
 	var err error
 	if kubeconfig == "" {
@@ -218,7 +229,12 @@ func Start(kubeconfig string,apiServerAddress string,callbacks *discover.Callbac
 	ingessInformer := sharedInformers.Extensions().V1beta1().Ingresses().Informer()
 	go ingessInformer.Run(stop2)
 	createCacheHandler(ingessInformer,"Ingress",callbacks)
-	return svcInformer.GetStore(),ingessInformer.GetStore()
+
+	secretInformer := sharedInformers.Core().V1().Secrets().Informer()
+	go secretInformer.Run(stop2)
+	//createCacheHandler(secretInformer,"Secrets",callbacks)
+
+	return svcInformer.GetStore(),ingessInformer.GetStore(),secretInformer.GetStore()
 }
 
 func createCacheHandler(informer cache.SharedIndexInformer, otype string,callbacks *discover.Callbacks)  {
