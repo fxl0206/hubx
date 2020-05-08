@@ -1,7 +1,6 @@
 package server
 
 import (
-	"aif.io/hubx/k8s/portal/pkg/kube/model"
 	"encoding/json"
 	"fmt"
 	"k8s.io/client-go/informers"
@@ -12,14 +11,14 @@ import (
 	"log"
 	"time"
 
-	"github.com/spf13/cobra"
-	"k8s.io/api/core/v1"
-	"net/http"
 	"aif.io/hubx/k8s/portal/pkg/modelx"
 	"aif.io/hubx/k8s/portal/pkg/tpl"
 	"aif.io/hubx/pkg/root"
 	"aif.io/hubx/pkg/tools"
+	"github.com/spf13/cobra"
 	"html/template"
+	"k8s.io/api/core/v1"
+	"net/http"
 	//xdsv1 "aif.io/hubx/k8s/portal/api/v1"
 	"sort"
 	//"aif.io/hubx/k8s/portal/pkg/kube/crd"
@@ -209,13 +208,13 @@ func createCacheHandler(informer cache.SharedIndexInformer, otype string,callbac
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				callbacks.Notify(obj,model.EventAdd)
+				//callbacks.Notify(obj,model.EventAdd)
 			},
 			UpdateFunc: func(old, cur interface{}) {
-				callbacks.Notify(cur,model.EventUpdate)
+				//callbacks.Notify(cur,model.EventUpdate)
 			},
 			DeleteFunc: func(obj interface{}) {
-				callbacks.Notify(obj,model.EventDelete)
+				//callbacks.Notify(obj,model.EventDelete)
 			},
 		})
 }
