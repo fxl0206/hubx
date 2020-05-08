@@ -118,6 +118,9 @@ var(
 				err = json.Indent(&out, data, "", "  ")
 				fmt.Fprintln(w,  out.String())
 			})
+			http.HandleFunc("/debug4",func(w http.ResponseWriter, r *http.Request){
+				fmt.Fprintln(w,  secretStore.ListKeys())
+			})
 
 			//
 			http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request){
