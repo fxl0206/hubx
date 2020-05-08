@@ -110,3 +110,19 @@ func MakeSecrets(tlsName, rootName string) []cache.Resource {
 		},
 	}
 }
+
+func MakeSecret(tlsName string,chain,key []byte ) cache.Resource {
+	return &auth.Secret{
+			Name: tlsName,
+			Type: &auth.Secret_TlsCertificate{
+				TlsCertificate: &auth.TlsCertificate{
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{InlineBytes: key},
+					},
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{InlineBytes: chain},
+					},
+				},
+			},
+		}
+}

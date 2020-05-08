@@ -26,6 +26,7 @@ type Callbacks struct {
 	Store    model.ConfigStoreCache
 	SvcStore kcache.Store
 	IngressStore kcache.Store
+	SecretStore kcache.Store
 
 	Cache cache.SnapshotCache
 }

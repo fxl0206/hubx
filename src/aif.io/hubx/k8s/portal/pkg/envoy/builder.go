@@ -14,8 +14,10 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
+	v1 "k8s.io/api/core/v1"
 	ext "k8s.io/api/extensions/v1beta1"
 	"strconv"
+	kcache "k8s.io/client-go/tools/cache"
 
 	"time"
 
@@ -210,7 +212,7 @@ func configSource(mode string) *core.ConfigSource {
 }
 
 // MakeHTTPListener creates a listener using either ADS or RDS for the route.
-func MakeHTTPListener(ssl bool,auth,mode string, listenerName string, port uint32, route string) *v2.Listener {
+func MakeHTTPListener(ssl string,auth,mode string, listenerName string, port uint32, route string) *v2.Listener {
 	rdsSource := configSource(mode)
 
 	// access log service configuration
@@ -299,7 +301,7 @@ func MakeHTTPListener(ssl bool,auth,mode string, listenerName string, port uint3
 			},
 		}},
 	}
-    if ssl {
+    if ssl !="" {
 		chain.TlsContext=&pauth.DownstreamTlsContext{
 			CommonTlsContext:&pauth.CommonTlsContext{
 				/*TlsCertificates:[]*pauth.TlsCertificate{
@@ -318,7 +320,7 @@ func MakeHTTPListener(ssl bool,auth,mode string, listenerName string, port uint3
 				},*/
 				TlsCertificateSdsSecretConfigs: []*pauth.SdsSecretConfig{
 					{
-					   Name:"tlssecret",
+					   Name:ssl,
 					   SdsConfig:configSource(Xds),
 					},
 				},
@@ -385,6 +387,7 @@ type SnapshotBuilder struct {
 	TLS bool
 	Listeners []interface{}
 	DnsMap map[string]string
+	SecretStore kcache.Store
 }
 
 func (ts SnapshotBuilder) Build() cache.Snapshot {
@@ -392,7 +395,9 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 	clusters := make([]cache.Resource, 0)
 	endpoints := make([]cache.Resource,0)
 	routes := make([]cache.Resource,0)
-    existsCluster:=make(map[string]string)
+	secrets := make([]cache.Resource,0)
+
+	existsCluster:=make(map[string]string)
 	for index,_:= range ts.Listeners {
 		config:=ts.Listeners[index]
 
@@ -409,8 +414,18 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 		protocol=strings.ToUpper(protocol)
 		if protocol=="HTTP" {
 			fmt.Printf("build http protocol")
-
-			virtualHosts:=make([]route.VirtualHost,0)
+			ussl:=""
+			if len(l.Spec.TLS)>0 {
+				for _,tl:= range l.Spec.TLS{
+					item,exists,_:=ts.SecretStore.GetByKey(l.Namespace+"/"+tl.SecretName)
+					if exists {
+						sct:=item.(*v1.Secret)
+						ussl=l.Namespace+"/"+tl.SecretName
+						secrets=append(secrets,MakeSecret(ussl,sct.Data["tls.crt"],sct.Data["tls.key"]))
+					}
+				}
+			}
+				virtualHosts:=make([]route.VirtualHost,0)
 			for i,_:= range rules {
 				fmt.Printf("###1")
 				routeItems :=make([]route.Route,0)
@@ -446,8 +461,7 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 			if len(virtualHosts)>0 {
 				fmt.Printf("###7")
 				routes=append(routes,MakeRoute(sport, virtualHosts))
-				useSSL:=len(l.Spec.TLS)>0
-				listeners = append(listeners, MakeHTTPListener(useSSL,auth,Ads, l.Name, uint32(port), sport))
+				listeners = append(listeners, MakeHTTPListener(ussl,auth,Ads, l.Name, uint32(port), sport))
 			}
 		}else {
 			if l.Spec.Backend != nil {
@@ -468,10 +482,10 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 		Clusters:  cache.NewResources(ts.Version, clusters),
 		Routes:    cache.NewResources(ts.Version, routes),
 		Listeners: cache.NewResources(ts.Version, listeners),
+		Secrets: cache.NewResources(ts.Version,secrets),
 	}
-
 	if ts.TLS {
-		out.Secrets = cache.NewResources(ts.Version, MakeSecrets(tlsName, rootName))
+		//out.Secrets = cache.NewResources(ts.Version, MakeSecrets(tlsName, rootName))
 	}
 	error:=out.Consistent()
 	if error != nil {
