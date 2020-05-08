@@ -77,7 +77,17 @@ var(
 					return
 				}
 
-				builder:=henvoy.SnapshotBuilder{Version:"x",Listeners:listeners}
+				services:= k8sStore.List()
+				dnsMap:=map[string]string{}
+				for _,v:=range services{
+					svc:=v.(*v1.Service)
+					sName:=svc.ObjectMeta.Name+"."+svc.ObjectMeta.Namespace
+					if svc.Spec.ClusterIP != ""{
+						dnsMap[sName]=svc.Spec.ClusterIP
+					}
+				}
+
+				builder:=henvoy.SnapshotBuilder{DnsMap:dnsMap,Version:"x",Listeners:listeners}
 				data,err:=json.Marshal(builder.Build())
 				if err != nil {
 					fmt.Fprintln(w, err)
