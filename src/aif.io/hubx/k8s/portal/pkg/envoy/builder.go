@@ -133,9 +133,14 @@ func newRoute(clusterName,auth,prefix string,routes [] route.Route)  [] route.Ro
 							Kind:&types.Value_ListValue{
 								ListValue:&types.ListValue{
 									Values:[]*types.Value{
-										&types.Value{
+										{
 											Kind:&types.Value_StringValue{
-												StringValue:auth,
+												StringValue:"Basic "+auth+"=",
+											},
+										},
+										{
+											Kind:&types.Value_StringValue{
+												StringValue:"Basic "+auth+"==",
 											},
 										},
 									},
@@ -386,9 +391,9 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 
 		l:=config.(*ext.Ingress)
 		rules:=l.Spec.Rules
-		protocol:=l.Annotations["protocol"]
-		sport:=l.Annotations["port"]
-		auth:=l.Annotations["auth"]
+		protocol:=l.Annotations["listen.protocol"]
+		sport:=l.Annotations["listen.port"]
+		auth:=l.Annotations["listen.auth"]
 
 		port,err:=strconv.Atoi(sport)
 		if err != nil {
