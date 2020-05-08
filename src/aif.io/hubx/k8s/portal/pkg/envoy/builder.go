@@ -394,34 +394,51 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 		protocol:=l.Labels["listen.protocol"]
 		sport:=l.Labels["listen.port"]
 		auth:=l.Labels["listen.auth"]
-
+		fmt.Printf("protocol:%s,port=%s,auth=%s",protocol,sport,auth)
 		port,err:=strconv.Atoi(sport)
 		if err != nil {
 			continue
 		}
 		protocol=strings.ToUpper(protocol)
 		if protocol=="HTTP" {
+			fmt.Printf("build http protocol")
+
 			virtualHosts:=make([]route.VirtualHost,0)
 			for i,_:= range rules {
+				fmt.Printf("###1")
 				routeItems :=make([]route.Route,0)
 				s:=rules[i]
 			    for j,_:= range s.HTTP.Paths {
 			    	pathValue:=s.HTTP.Paths[j]
 			    	clusterName:=pathValue.Backend.ServiceName
-			    	rIP:=ts.DnsMap[clusterName]
-			    	if rIP==""{
-			    		continue
+			    	rIP:=ts.DnsMap[clusterName+"."+l.Namespace]
+					fmt.Printf("###2")
+
+					if rIP==""{
+						fmt.Printf("###x")
+
+						continue
 			    	}
-			    	//不存在集群才构建
+					fmt.Printf("###3")
+
+					//不存在集群才构建
 			    	if _,ok:=existsCluster[clusterName];!ok{
-			  		   endpoints=append(endpoints,MakeEndpoint(clusterName,rIP,uint32(pathValue.Backend.ServicePort.IntValue())))
+						fmt.Printf("###4")
+
+						endpoints=append(endpoints,MakeEndpoint(clusterName,rIP,uint32(pathValue.Backend.ServicePort.IntValue())))
 			  		   clusters=append(clusters,MakeCluster(Ads,clusterName))
 			  	    }
-			    	routeItems =newRoute(clusterName,auth,pathValue.Path, routeItems)
+					fmt.Printf("###5")
+
+					routeItems =newRoute(clusterName,auth,pathValue.Path, routeItems)
 			    }
-			  virtualHosts=append(virtualHosts,MakeVirtualHost(s.Host,s.Host,routeItems))
+				fmt.Printf("###6")
+
+				virtualHosts=append(virtualHosts,MakeVirtualHost(s.Host,s.Host,routeItems))
 			}
 			if len(virtualHosts)>0 {
+				fmt.Printf("###7")
+
 				routes=append(routes,MakeRoute(sport, virtualHosts))
 				useSSL:=len(l.Spec.TLS)>0
 				listeners = append(listeners, MakeHTTPListener(useSSL,auth,Ads, l.Name, uint32(port), sport))

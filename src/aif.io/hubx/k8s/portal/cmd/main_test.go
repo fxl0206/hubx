@@ -1,16 +1,24 @@
 package main
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
 import (
 	"aif.io/hubx/pkg/root"
+	"encoding/json"
 	"fmt"
-	"path/filepath"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"os"
-	"runtime"
-	"aif.io/hubx/k8s/portal/pkg/kube/crd"
-	"time"
+	"path/filepath"
+
 	"aif.io/hubx/k8s/portal/api/v1"
+	henvoy "aif.io/hubx/k8s/portal/pkg/envoy"
+	"aif.io/hubx/k8s/portal/pkg/kube/crd"
 	"aif.io/hubx/k8s/portal/pkg/kube/model"
+	ext "k8s.io/api/extensions/v1beta1"
+	"runtime"
+	"time"
 )
 
 var(
@@ -98,5 +106,44 @@ func TestCache(t *testing.T)  {
 
 	<- stop
 
+}
+
+func TestBuild(t *testing.T){
+	ll:=&ext.Ingress{
+	}
+	ll.Labels=make(map[string]string)
+	ll.Labels["listen.protocol"]="http"
+	ll.Labels["listen.port"]="6688"
+	ll.Labels["listen.auth"]="2sfwfwf"
+	rule:=ext.IngressRule{
+		Host:"doc.hubx.site",
+		IngressRuleValue:ext.IngressRuleValue{
+			HTTP:&ext.HTTPIngressRuleValue{
+				Paths:[]ext.HTTPIngressPath{
+					{
+						Path:    "/",
+						Backend: ext.IngressBackend{
+							ServiceName:"hubxdoc.docs",
+							ServicePort: intstr.FromInt(8899),
+						},
+					},
+				},
+			},
+		},
+	}
+	ll.Spec.Rules=[]ext.IngressRule{rule}
+	listeners:=[]*ext.Ingress{
+		ll,
+	}
+	llll:=[]interface{}{listeners[0]}
+	builder:=henvoy.SnapshotBuilder{DnsMap:map[string]string{"hubxdoc.docs":"10.10.11.1"},Version:"x",Listeners:llll}
+	data,err:=json.Marshal(builder.Build())
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	var out bytes.Buffer
+	err = json.Indent(&out, data, "", "  ")
+	fmt.Print(out.String())
 }
 
