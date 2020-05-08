@@ -162,10 +162,10 @@ func newRoute(clusterName,auth,prefix string,routes [] route.Route)  [] route.Ro
 	return append(routes,newRoute)
 }
 
-func MakeVirtualHost(vsName ,domain string,routes [] route.Route) route.VirtualHost{
+func MakeVirtualHost(vsName string,domains []string,routes [] route.Route) route.VirtualHost{
 	return route.VirtualHost{
 		Name:    vsName,
-		Domains: []string{domain},
+		Domains: domains,
 		Routes: routes,
 	}
 }
@@ -433,8 +433,8 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 					routeItems =newRoute(clusterName,auth,pathValue.Path, routeItems)
 			    }
 				fmt.Printf("###6")
-
-				virtualHosts=append(virtualHosts,MakeVirtualHost(s.Host,s.Host,routeItems))
+			    domains:=[]string{s.Host,s.Host+":"+sport}
+				virtualHosts=append(virtualHosts,MakeVirtualHost(s.Host,domains,routeItems))
 			}
 			if len(virtualHosts)>0 {
 				fmt.Printf("###7")
