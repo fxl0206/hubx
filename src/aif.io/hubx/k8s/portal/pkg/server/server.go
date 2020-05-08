@@ -36,6 +36,8 @@ var(
 	httpPort uint64
 	ingressDns string
 	stop chan struct{}
+	stop2 chan struct{}
+
 	portalCmd = &cobra.Command{
 		Use:   "portal",
 		Short: "portal service",
@@ -171,6 +173,8 @@ var(
 )
 func init(){
 	stop=make(chan struct{})
+	stop2=make(chan struct{})
+
 	portalCmd.PersistentFlags().StringVar(&kubeConfig, "kubeConfig", "","k8s config file path")
 	portalCmd.PersistentFlags().Uint64Var(&grpcPort, "grpcPort", 8001,"envoy xds server port")
 	portalCmd.PersistentFlags().Uint64Var(&httpPort, "httpPort", 8000,"portal http server port")
@@ -196,11 +200,11 @@ func Start(kubeconfig string,apiServerAddress string,callbacks *discover.Callbac
 
 	svcInformer := sharedInformers.Core().V1().Services().Informer()
 	go svcInformer.Run(stop)
-	createCacheHandler(svcInformer,"Service",callbacks)
+	//createCacheHandler(svcInformer,"Service",callbacks)
 
 	ingessInformer := sharedInformers.Extensions().V1beta1().Ingresses().Informer()
-	go ingessInformer.Run(stop)
-	createCacheHandler(ingessInformer,"Ingress",callbacks)
+	go ingessInformer.Run(stop2)
+	//createCacheHandler(ingessInformer,"Ingress",callbacks)
 	return svcInformer.GetStore(),ingessInformer.GetStore()
 }
 
@@ -208,12 +212,17 @@ func createCacheHandler(informer cache.SharedIndexInformer, otype string,callbac
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				fmt.Println(obj)
 				//callbacks.Notify(obj,model.EventAdd)
 			},
 			UpdateFunc: func(old, cur interface{}) {
+				fmt.Println(cur)
+
 				//callbacks.Notify(cur,model.EventUpdate)
 			},
 			DeleteFunc: func(obj interface{}) {
+				fmt.Println(obj)
+
 				//callbacks.Notify(obj,model.EventDelete)
 			},
 		})
