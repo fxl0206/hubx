@@ -95,6 +95,18 @@ var(
 				fmt.Fprintln(w,  out.String())
 			})
 
+			http.HandleFunc("/debug2",func(w http.ResponseWriter, r *http.Request){
+				listeners:=ingessStore.List()
+				data,err:=json.Marshal(listeners)
+				if err != nil {
+					fmt.Fprintln(w, err)
+					return
+				}
+				var out bytes.Buffer
+				err = json.Indent(&out, data, "", "  ")
+				fmt.Fprintln(w,  out.String())
+			})
+
 			//
 			http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request){
 				services:= k8sStore.List()
