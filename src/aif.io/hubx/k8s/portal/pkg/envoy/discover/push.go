@@ -1,6 +1,7 @@
 package discover
 
 import (
+	"k8s.io/api/core/v1"
 	"sync"
 	"context"
 	"aif.io/hubx/k8s/portal/pkg/kube/model"
@@ -8,6 +9,8 @@ import (
 	"github.com/prometheus/common/log"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	henvoy "aif.io/hubx/k8s/portal/pkg/envoy"
+	kcache "k8s.io/client-go/tools/cache"
+
 	"fmt"
 	"strconv"
 	"time"
@@ -21,6 +24,8 @@ type Callbacks struct {
 	mu       sync.Mutex
 	timer *time.Timer
 	Store  model.ConfigStoreCache
+	K8sStore kcache.Store
+
 	Cache cache.SnapshotCache
 }
 
@@ -56,12 +61,20 @@ func (cb *Callbacks) Push() error{
 	}
 
 	for _,key:= range cb.Cache.GetStatusKeys(){
-
 		listeners,err:=cb.Store.List("listener","")
 		if err != nil {
 			return err
 		}
-		builder:=henvoy.SnapshotBuilder{Version:strconv.Itoa(cb.version),Listeners:listeners}
+		services:= cb.K8sStore.List()
+		dnsMap:=map[string]string{}
+		for _,v:=range services{
+			svc:=v.(*v1.Service)
+			sName:=svc.ObjectMeta.Name+"."+svc.ObjectMeta.Namespace
+			if svc.Spec.ClusterIP != ""{
+				dnsMap[sName]=svc.Spec.ClusterIP
+			}
+		}
+		builder:=henvoy.SnapshotBuilder{DnsMap:dnsMap,Version:strconv.Itoa(cb.version),Listeners:listeners}
 		fmt.Println(fmt.Sprintf("push id=%s cache",key))
 		ss:=builder.Build()
 		cb.Cache.SetSnapshot(key,ss)

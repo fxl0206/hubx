@@ -363,6 +363,7 @@ type SnapshotBuilder struct {
 	Version string
 	TLS bool
 	Listeners []model.Config
+	DnsMap map[string]string
 }
 
 func (ts SnapshotBuilder) Build() cache.Snapshot {
@@ -384,7 +385,11 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 					s:=l.Services[i]
 					if len(s.Endpoints)>0 {
 						e:=s.Endpoints[0]
-						endpoints=append(endpoints,MakeEndpoint(s.Name,e.Ip,e.Port))
+						rIP:=ts.DnsMap[e.Ip]
+						if rIP==""{
+							rIP=e.Ip
+						}
+						endpoints=append(endpoints,MakeEndpoint(s.Name,rIP,e.Port))
 						routes=append(routes,MakeRoute(l.Auth,l.Name, s.Name))
 						clusters=append(clusters,MakeCluster(Ads,s.Name))
 						count++

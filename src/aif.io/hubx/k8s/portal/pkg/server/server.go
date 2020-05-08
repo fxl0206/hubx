@@ -57,6 +57,7 @@ var(
 
 			//绑定crd到xdsserver
 			xdsCallback.Store=cache
+			xdsCallback.K8sStore=k8sStore
 
 			if err != nil {
 				log.Println(err)
