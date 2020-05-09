@@ -212,7 +212,7 @@ func configSource(mode string) *core.ConfigSource {
 }
 
 // MakeHTTPListener creates a listener using either ADS or RDS for the route.
-func MakeHTTPListener(ssl string,auth,mode string, listenerName string, port uint32, route string) *v2.Listener {
+func MakeHTTPListener(ssl string,auth,mode string, listenerName string, port uint32, route string,chainByte ,keyByte []byte) *v2.Listener {
 	rdsSource := configSource(mode)
 
 	// access log service configuration
@@ -304,26 +304,26 @@ func MakeHTTPListener(ssl string,auth,mode string, listenerName string, port uin
     if ssl !="" {
 		chain.TlsContext=&pauth.DownstreamTlsContext{
 			CommonTlsContext:&pauth.CommonTlsContext{
-				/*TlsCertificates:[]*pauth.TlsCertificate{
-					&pauth.TlsCertificate{
+				TlsCertificates:[]*pauth.TlsCertificate{
+					{
 						CertificateChain:&core.DataSource{
-							Specifier:&core.DataSource_Filename{
-								"/etc/letsencrypt/fullchain1.pem",
-							},
+							Specifier: &core.DataSource_InlineBytes{
+								InlineBytes: chainByte,
+						    },
 						},
 						PrivateKey:&core.DataSource{
-							Specifier:&core.DataSource_Filename{
-								"/etc/letsencrypt/privkey1.pem",
-							},
+							Specifier:&core.DataSource_InlineBytes{
+								InlineBytes: keyByte,
 						},
 					},
-				},*/
-				TlsCertificateSdsSecretConfigs: []*pauth.SdsSecretConfig{
+					},
+				},
+				/*TlsCertificateSdsSecretConfigs: []*pauth.SdsSecretConfig{
 					{
 					   Name:ssl,
 					   SdsConfig:configSource(Xds),
 					},
-				},
+				},*/
 			},
 		}
 	}
@@ -414,17 +414,7 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 		protocol=strings.ToUpper(protocol)
 		if protocol=="HTTP" {
 			fmt.Printf("build http protocol")
-			ussl:=""
-			if len(l.Spec.TLS)>0 {
-				for _,tl:= range l.Spec.TLS{
-					item,exists,_:=ts.SecretStore.GetByKey(l.Namespace+"/"+tl.SecretName)
-					if exists {
-						sct:=item.(*v1.Secret)
-						ussl=l.Namespace+"/"+tl.SecretName
-						secrets=append(secrets,MakeSecret(ussl,sct.Data["tls.crt"],sct.Data["tls.key"]))
-					}
-				}
-			}
+
 				virtualHosts:=make([]route.VirtualHost,0)
 			for i,_:= range rules {
 				fmt.Printf("###1")
@@ -461,7 +451,23 @@ func (ts SnapshotBuilder) Build() cache.Snapshot {
 			if len(virtualHosts)>0 {
 				fmt.Printf("###7")
 				routes=append(routes,MakeRoute(sport, virtualHosts))
-				listeners = append(listeners, MakeHTTPListener(ussl,auth,Ads, l.Name, uint32(port), sport))
+				ussl:=""
+				 chainByte:=[]byte{}
+				 keyByte:=[]byte{}
+
+				if len(l.Spec.TLS)>0 {
+					for _,tl:= range l.Spec.TLS{
+						item,exists,_:=ts.SecretStore.GetByKey(l.Namespace+"/"+tl.SecretName)
+						if exists {
+							sct:=item.(*v1.Secret)
+							ussl=l.Namespace+"/"+tl.SecretName
+							chainByte=sct.Data["tls.crt"]
+							keyByte=sct.Data["tls.key"]
+							//secrets=append(secrets,MakeSecret(ussl,sct.Data["tls.crt"],sct.Data["tls.key"]))
+						}
+					}
+				}
+				listeners = append(listeners, MakeHTTPListener(ussl,auth,Ads, l.Name, uint32(port), sport,chainByte,keyByte))
 			}
 		}else {
 			if l.Spec.Backend != nil {
