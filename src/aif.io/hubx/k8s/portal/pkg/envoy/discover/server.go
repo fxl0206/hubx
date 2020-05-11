@@ -33,7 +33,7 @@ func Start(pusher *Callbacks,grpcPort uint64)  {
 	lis, _ := net.Listen("tcp", tools.ListenPortWrapper(grpcPort))
 
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
-	discovery.RegisterSecretDiscoveryServiceServer(grpcServer,server)
+	//discovery.RegisterSecretDiscoveryServiceServer(grpcServer,server)
 	api.RegisterEndpointDiscoveryServiceServer(grpcServer, server)
 	api.RegisterClusterDiscoveryServiceServer(grpcServer, server)
 	api.RegisterRouteDiscoveryServiceServer(grpcServer, server)
